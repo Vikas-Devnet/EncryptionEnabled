@@ -13,7 +13,7 @@ namespace EncryptionEnabled
             return PrivateCheckPassword(inputString, encryptedString, decryptionKey, systemDecrytpionKey, systemIVByte, out errorMessage);
         }
         #endregion
-        private static bool PrivateEncryptString(string inputString, string encrptionKey, out string? encryptedString,out byte[] systemDecrytpionKey,out byte[] systemIVByte , out string errorMessage)
+        private static bool PrivateEncryptString(string inputString, string encrptionKey, out string? encryptedString, out byte[] systemDecrytpionKey, out byte[] systemIVByte, out string errorMessage)
         {
             errorMessage = string.Empty;
             encryptedString = string.Empty;
@@ -30,18 +30,18 @@ namespace EncryptionEnabled
                     iv = aesAlg.IV;
                     encryptedString = EncryptStringToBytes_Aes(selfEncryptedString, key, iv);
                 }
-                
+
                 if (string.IsNullOrEmpty(encryptedString))
                 {
                     errorMessage = "Encryption Failed";
                     return false;
-                    
+
                 }
                 return true;
             }
             catch (Exception ex)
             {
-                
+
                 errorMessage = ex.Message;
                 return false;
             }
@@ -53,15 +53,15 @@ namespace EncryptionEnabled
 
         }
 
-        
-        private static bool PrivateCheckPassword(string originalString, string encryptedString, string userDecryptionKey, byte[] systemDecrytpionKey, byte[] systemIVByte ,out string errorMessage)
+
+        private static bool PrivateCheckPassword(string originalString, string encryptedString, string userDecryptionKey, byte[] systemDecrytpionKey, byte[] systemIVByte, out string errorMessage)
         {
             errorMessage = string.Empty;
             try
             {
                 string aesDecrypted = DecryptStringFromBytes_Aes(encryptedString, systemDecrytpionKey, systemIVByte);
                 string? tempEncryptedPassword = TranslateString(aesDecrypted, userDecryptionKey);
-                
+
                 if (tempEncryptedPassword == encryptedString)
                 {
                     return true;
@@ -78,56 +78,48 @@ namespace EncryptionEnabled
         static string EncryptStringToBytes_Aes(string? plainText, byte[] Key, byte[] IV)
         {
             if (plainText == null || plainText.Length <= 0)
-                throw new ArgumentNullException("plainText");
+                throw new ArgumentNullException(nameof(plainText));
             if (Key == null || Key.Length <= 0)
-                throw new ArgumentNullException("Key");
+                throw new ArgumentNullException(nameof(Key));
             if (IV == null || IV.Length <= 0)
-                throw new ArgumentNullException("IV");
+                throw new ArgumentNullException(nameof(IV));
 
-            using (Aes aesAlg = Aes.Create())
+            using Aes aesAlg = Aes.Create();
+            aesAlg.Key = Key;
+            aesAlg.IV = IV;
+
+            ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
+
+            using MemoryStream msEncrypt = new();
+            using (CryptoStream csEncrypt = new(msEncrypt, encryptor, CryptoStreamMode.Write))
+            using (StreamWriter swEncrypt = new(csEncrypt))
             {
-                aesAlg.Key = Key;
-                aesAlg.IV = IV;
-
-                ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
-
-                using (MemoryStream msEncrypt = new MemoryStream())
-                {
-                    using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
-                    using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
-                    {
-                        swEncrypt.Write(plainText);
-                    }
-                    return Convert.ToBase64String(msEncrypt.ToArray());
-                }
+                swEncrypt.Write(plainText);
             }
+            return Convert.ToBase64String(msEncrypt.ToArray());
         }
 
         static string DecryptStringFromBytes_Aes(string cipherTextString, byte[] Key, byte[] IV)
         {
             if (cipherTextString == null || cipherTextString.Length <= 0)
-                throw new ArgumentNullException("cipherTextString");
+                throw new ArgumentNullException(nameof(cipherTextString));
             if (Key == null || Key.Length <= 0)
-                throw new ArgumentNullException("Key");
+                throw new ArgumentNullException(nameof(Key));
             if (IV == null || IV.Length <= 0)
-                throw new ArgumentNullException("IV");
+                throw new ArgumentNullException(nameof(IV));
 
             byte[] cipherText = Convert.FromBase64String(cipherTextString);
 
-            using (Aes aesAlg = Aes.Create())
-            {
-                aesAlg.Key = Key;
-                aesAlg.IV = IV;
+            using Aes aesAlg = Aes.Create();
+            aesAlg.Key = Key;
+            aesAlg.IV = IV;
 
-                ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+            ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
 
-                using (MemoryStream msDecrypt = new MemoryStream(cipherText))
-                using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
-                using (StreamReader srDecrypt = new StreamReader(csDecrypt))
-                {
-                    return srDecrypt.ReadToEnd();
-                }
-            }
+            using MemoryStream msDecrypt = new(cipherText);
+            using CryptoStream csDecrypt = new(msDecrypt, decryptor, CryptoStreamMode.Read);
+            using StreamReader srDecrypt = new(csDecrypt);
+            return srDecrypt.ReadToEnd();
         }
         internal static string? TranslateString(string inputString, string userKey)
         {
@@ -153,7 +145,7 @@ namespace EncryptionEnabled
                     else
                         result[i * 2 + 1] = '0';
                 }
-                string combinedString = new string(result);
+                string combinedString = new(result);
                 if (!string.IsNullOrEmpty(combinedString))
                 {
                     var splitList = SplitEncryptedString(combinedString);
@@ -196,7 +188,7 @@ namespace EncryptionEnabled
                 int length = encryptedString.Length;
                 int sumOfDigits = SumOfDigits(length);
                 int parts = length / sumOfDigits;
-                List<string> splitList = new();
+                List<string> splitList = [];
 
                 int partLength = length / parts;
                 int remainingLength = length % parts;
